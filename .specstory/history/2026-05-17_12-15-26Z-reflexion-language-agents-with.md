@@ -3820,3 +3820,502 @@ Everything persisted correctly:
 The whole thing — Phase A setup, Phase B loop, memory load/persist, SSE streaming, exact-match eval, Reflector blinded to gold — is working end-to-end. Nice.
 
 Want me to add a quick batch-test script next (run N HotPotQA-style questions and print a pass-rate table), or move on to Phase C / the algorithms evaluator?
+
+---
+
+_**User (2026-05-17 12:49:27Z)**_
+
+step 2,3,4 please do these without affecting anything else in any way at all please,very simple
+
+---
+
+_**Agent (claude-opus-4-7 2026-05-17 12:50:18Z)**_
+
+_**Agent (claude-opus-4-7 2026-05-17 12:50:20Z)**_
+
+I want to make sure I do the right thing — I'm seeing a couple of "step 2, 3, 4" lists in our conversation and I don't want to guess wrong.
+
+_**Agent (claude-opus-4-7 2026-05-17 12:50:36Z)**_
+
+<tool-use data-tool-type="generic" data-tool-name="AskUserQuestion"><details>
+<summary>Tool use: **AskUserQuestion**</summary>
+**Which 'step 2, 3, 4' do you mean?**
+
+Options:
+- **Refactor into modular files** - Split current loop.ts into openai.ts, prompts.ts, evaluators/trivia.ts (from my original scaffold list — steps 2–4). Pure refactor, no behavior change.
+- **Build a batch test script** - The next thing I offered — a script that runs N trivia questions and prints a pass-rate table (item 5 on my scaffold list, but a natural next step).
+- **Something from the walkthrough .md** - Steps 2/3/4 inside Phase B of the walkthrough — Build Actor prompt, Call OpenAI, Persist attempt. These are already done; you might want them split out / refactored.
+
+
+```text
+The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.
+
+Note: The user's next message may contain a correction or preference. Pay close attention — if they explain what went wrong or how they'd prefer you to work, consider saving that to memory for future sessions.
+```
+</details></tool-use>
+
+---
+
+_**User (2026-05-17 12:50:36Z)**_
+
+[Request interrupted by user for tool use]
+
+_**User (2026-05-17 12:51:03Z)**_
+
+❯ step 2,3,4 please do these without affecting anything else in any way at all please,very simple from the reflexion_trivia_walkthrough.md file,follow proper and professional folder structure
+
+---
+
+_**Agent (claude-opus-4-7 2026-05-17 12:52:08Z)**_
+
+_**Agent (claude-opus-4-7 2026-05-17 12:52:09Z)**_
+
+Got it — refactoring steps 2 (Actor prompt build), 3 (Actor call), 4 (persist attempt) into proper modular files. Behavior stays identical.
+
+_**Agent (claude-opus-4-7 2026-05-17 12:52:28Z)**_
+
+<tool-use data-tool-type="shell" data-tool-name="Bash"><details>
+<summary>Tool use: **Bash**</summary>
+Create reflexion module folders
+
+`mkdir -p /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/reflexion/prompts /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/reflexion/agents /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/reflexion/repository`
+
+```text
+(Bash completed with no output)
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:52:37Z)**_
+
+<tool-use data-tool-type="write" data-tool-name="Write"><details>
+<summary>Tool use: **Write**</summary>
+
+```typescript
+import OpenAI from "openai";
+
+export const openai = new OpenAI();
+export const MODEL = "gpt-4.1";
+
+```
+
+```text
+File created successfully at: /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/reflexion/openai.ts (file state is current in your context — no need to Read it back)
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:52:50Z)**_
+
+<tool-use data-tool-type="write" data-tool-name="Write"><details>
+<summary>Tool use: **Write**</summary>
+
+```typescript
+export function buildActorPrompt(
+  question: string,
+  mem: string[]
+): { system: string; user: string } {
+  const memBlock = mem.length
+    ? `You previously attempted this question and failed. Your reflections:\n${mem
+        .map((r, i) => `${i + 1}. ${r}`)
+        .join("\n")}\n\nUse these to avoid repeating the same mistakes.\n\n`
+    : "";
+
+  return {
+    system:
+      "You are a careful trivia assistant. Answer the question with ONLY the final answer — no explanation, no extra words.",
+    user: `${memBlock}Question: ${question}\nAnswer:`,
+  };
+}
+
+```
+
+```text
+File created successfully at: /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/reflexion/prompts/actor.ts (file state is current in your context — no need to Read it back)
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:53:04Z)**_
+
+<tool-use data-tool-type="write" data-tool-name="Write"><details>
+<summary>Tool use: **Write**</summary>
+
+```typescript
+import { openai, MODEL } from "../openai";
+import { buildActorPrompt } from "../prompts/actor";
+
+export async function callActor(
+  question: string,
+  mem: string[]
+): Promise<string> {
+  const { system, user } = buildActorPrompt(question, mem);
+
+  const res = await openai.chat.completions.create({
+    model: MODEL,
+    temperature: 0.7,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user },
+    ],
+  });
+
+  return res.choices[0].message.content?.trim() ?? "";
+}
+
+```
+
+```text
+File created successfully at: /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/reflexion/agents/actor.ts (file state is current in your context — no need to Read it back)
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:53:49Z)**_
+
+<tool-use data-tool-type="write" data-tool-name="Write"><details>
+<summary>Tool use: **Write**</summary>
+
+```typescript
+import { db } from "../../db";
+
+export function insertTrialAttempt(
+  taskId: number,
+  trialNumber: number,
+  attempt: string
+): void {
+  db.query(`
+    INSERT INTO trials (task_id, trial_number, attempt, passed, created_at)
+    VALUES ($task_id, $trial_number, $attempt, 0, $created_at)
+  `).run({
+    task_id: taskId,
+    trial_number: trialNumber,
+    attempt,
+    created_at: Date.now(),
+  });
+}
+
+```
+
+```text
+File created successfully at: /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/reflexion/repository/trials.ts (file state is current in your context — no need to Read it back)
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:53:52Z)**_
+
+Now update `loop.ts` to use them — leaving every other step (1, 5, 6, 7, 8, 9) exactly as it was:
+
+_**Agent (claude-opus-4-7 2026-05-17 12:54:11Z)**_
+
+<tool-use data-tool-type="write" data-tool-name="Edit"><details>
+<summary>Tool use: **Edit**</summary>
+
+```text
+The file /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/loop.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:54:25Z)**_
+
+<tool-use data-tool-type="write" data-tool-name="Edit"><details>
+<summary>Tool use: **Edit**</summary>
+
+```text
+The file /Users/karthiknadar/Desktop/reflexion-paper-implementation/server/src/loop.ts has been updated successfully. (file state is current in your context — no need to Read it back)
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:54:28Z)**_
+
+Let me verify everything still compiles and the loop.ts is clean:
+
+_**Agent (claude-opus-4-7 2026-05-17 12:54:29Z)**_
+
+<tool-use data-tool-type="read" data-tool-name="Read"><details>
+<summary>Tool use: **Read**</summary>
+ `./server/src/loop.ts`
+
+```text
+1	import { db } from "./db";
+2	import { openai, MODEL } from "./reflexion/openai";
+3	import { callActor } from "./reflexion/agents/actor";
+4	import { insertTrialAttempt } from "./reflexion/repository/trials";
+5	
+6	const MAX_TRIALS = 5;
+7	const MEM_SIZE = 3;
+8	
+9	const normalize = (s: string) =>
+10	  s.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
+11	
+12	async function callReflector(
+13	  question: string,
+14	  attempt: string,
+15	  mem: string[]
+16	): Promise<string> {
+17	  const prevBlock = mem.length
+18	    ? `Previous reflections:\n${mem
+19	        .map((r, i) => `${i + 1}. ${r}`)
+20	        .join("\n")}\n\n`
+21	    : "";
+22	
+23	  const res = await openai.chat.completions.create({
+24	    model: MODEL,
+25	    temperature: 0.7,
+26	    messages: [
+27	      {
+28	        role: "system",
+29	        content:
+30	          "You are a self-reflection assistant. The user attempted a trivia question and got it wrong. Write a SHORT (2-3 sentence) reflection explaining what went wrong and what to do differently next time. Do NOT include the correct answer — only diagnose the mistake.",
+31	      },
+32	      {
+33	        role: "user",
+34	        content: `Question: ${question}\nYour previous answer: ${attempt}\n(You did not get the correct answer.)\n\n${prevBlock}Write your new reflection:`,
+35	      },
+36	    ],
+37	  });
+38	  return res.choices[0].message.content?.trim() ?? "";
+39	}
+40	
+41	export type LoopEvent =
+42	  | { type: "attempt"; trial: number; answer: string }
+43	  | { type: "verdict"; trial: number; passed: boolean }
+44	  | { type: "reflection"; trial: number; content: string }
+45	  | { type: "done"; outcome: "passed" | "exhausted"; trials: number };
+46	
+47	export async function* runReflexionLoop(
+48	  taskId: number,
+49	  question: string,
+50	  gold: string
+51	): AsyncGenerator<LoopEvent> {
+52	  for (let t = 0; t < MAX_TRIALS; t++) {
+53	    // Step 1: load memory (last 3, oldest-first in prompt)
+54	    const memRows = db
+55	      .query(`
+56	        SELECT content FROM reflections
+57	        WHERE task_id = $task_id
+58	        ORDER BY trial_number DESC
+59	        LIMIT ${MEM_SIZE}
+60	      `)
+61	      .all({ task_id: taskId }) as { content: string }[];
+62	    const mem = memRows.map((r) => r.content).reverse();
+63	
+64	    // Step 2-3: actor
+65	    const attempt = await callActor(question, mem);
+66	
+67	    // Step 4: persist attempt
+68	    insertTrialAttempt(taskId, t, attempt);
+69	    yield { type: "attempt", trial: t, answer: attempt };
+70	
+71	    // Step 5: evaluator
+72	    const passed = normalize(attempt) === normalize(gold);
+73	    db.query(`
+74	      UPDATE trials SET passed = $passed
+75	      WHERE task_id = $task_id AND trial_number = $trial_number
+76	    `).run({ passed: passed ? 1 : 0, task_id: taskId, trial_number: t });
+77	    yield { type: "verdict", trial: t, passed };
+78	
+79	    // Step 6: pass → exit
+80	    if (passed) {
+81	      db.query(`
+82	        UPDATE tasks SET status = 'passed', finished_at = $finished_at
+83	        WHERE id = $id
+84	      `).run({ finished_at: Date.now(), id: taskId });
+85	      yield { type: "done", outcome: "passed", trials: t + 1 };
+86	      return;
+87	    }
+88	
+89	    // Step 7-8: reflect + persist (Reflector does NOT see gold)
+90	    const reflection = await callReflector(question, attempt, mem);
+91	    db.query(`
+92	      INSERT INTO reflections (task_id, trial_number, content, created_at)
+93	      VALUES ($task_id, $trial_number, $content, $created_at)
+94	    `).run({
+95	      task_id: taskId,
+96	      trial_number: t,
+97	      content: reflection,
+98	      created_at: Date.now(),
+99	    });
+100	    yield { type: "reflection", trial: t, content: reflection };
+101	  }
+102	
+103	  // Phase C: exhausted
+104	  db.query(`
+105	    UPDATE tasks SET status = 'exhausted', finished_at = $finished_at
+106	    WHERE id = $id
+107	  `).run({ finished_at: Date.now(), id: taskId });
+108	  yield { type: "done", outcome: "exhausted", trials: MAX_TRIALS };
+109	}
+110
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:55:33Z)**_
+
+_**Agent (claude-opus-4-7 2026-05-17 12:55:33Z)**_
+
+Let me re-test to confirm refactor didn't break anything:
+
+_**Agent (claude-opus-4-7 2026-05-17 12:55:42Z)**_
+
+<tool-use data-tool-type="shell" data-tool-name="Bash"><details>
+<summary>Tool use: **Bash**</summary>
+Smoke-test refactored endpoint
+
+```bash
+curl -sN -X POST http://localhost:3003/solve/trivia \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What is the capital of France?",
+    "gold": "Paris"
+  }'
+```
+
+```text
+event: task_started
+data: {"taskId":2}
+
+event: attempt
+data: {"type":"attempt","trial":0,"answer":"Paris"}
+
+event: verdict
+data: {"type":"verdict","trial":0,"passed":true}
+
+event: done
+data: {"type":"done","outcome":"passed","trials":1}
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:55:47Z)**_
+
+Working — refactor is clean.
+
+**Final structure:**
+```
+server/src/
+  loop.ts                       # ← imports the 3 extracted pieces
+  reflexion/
+    openai.ts                   # shared OpenAI client + MODEL
+    prompts/
+      actor.ts                  # Step 2: buildActorPrompt()
+    agents/
+      actor.ts                  # Step 3: callActor()  (uses openai + prompt)
+    repository/
+      trials.ts                 # Step 4: insertTrialAttempt()
+```
+
+**What changed in `loop.ts`:** dropped the inline `OpenAI` client, the inline `callActor` body, and the inline `INSERT INTO trials`. Replaced with 3 imports. Steps 1, 5, 6, 7, 8, 9 and Phase C untouched. Same behavior, cleaner separation.
+
+---
+
+_**User (2026-05-17 12:56:35Z)**_
+
+could you please test it as well
+
+---
+
+_**Agent (claude-opus-4-7 2026-05-17 12:56:41Z)**_
+
+_**Agent (claude-opus-4-7 2026-05-17 12:56:52Z)**_
+
+<tool-use data-tool-type="shell" data-tool-name="Bash"><details>
+<summary>Tool use: **Bash**</summary>
+Test multi-trial loop after refactor
+
+```bash
+curl -sN -X POST http://localhost:3003/solve/trivia \
+  -H "Content-Type: application/json" \
+  -d '{
+    "question": "What profession do John Lanchester and Alan Dean Foster have in common?",
+    "gold": "novelist"
+  }'
+```
+
+```text
+event: task_started
+data: {"taskId":3}
+
+event: attempt
+data: {"type":"attempt","trial":0,"answer":"Writer"}
+
+event: verdict
+data: {"type":"verdict","trial":0,"passed":false}
+
+event: reflection
+data: {"type":"reflection","trial":0,"content":"I may have answered too broadly by choosing a general profession without considering the specific area they share in common. Next time, I should pay closer attention to the wording of the question and try to identify a more precise or specialized field that links the two individuals."}
+
+event: attempt
+data: {"type":"attempt","trial":1,"answer":"Writer"}
+
+event: verdict
+data: {"type":"verdict","trial":1,"passed":false}
+
+event: reflection
+data: {"type":"reflection","trial":1,"content":"This time, I may have overlooked a key detail that differentiates their shared profession, possibly focusing too much on a general title. In the future, I should research both individuals more thoroughly to find the specific type of writing or genre they have in common rather than settling for a broad category."}
+
+event: attempt
+data: {"type":"attempt","trial":2,"answer":"Science fiction novelist"}
+
+event: verdict
+data: {"type":"verdict","trial":2,"passed":false}
+
+event: reflection
+data: {"type":"reflection","trial":2,"content":"Once again, I may have defaulted to a general genre without verifying whether both individuals are best known for that specific work. Next time, I should carefully examine their bibliographies to confirm the exact profession or type of writing they both engage in, rather than relying on assumptions based on one of them."}
+
+event: attempt
+data: {"type":"attempt","trial":3,"answer":"Novelist"}
+
+event: verdict
+data: {"type":"verdict","trial":3,"passed":true}
+
+event: done
+data: {"type":"done","outcome":"passed","trials":4}
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:57:01Z)**_
+
+<tool-use data-tool-type="shell" data-tool-name="Bash"><details>
+<summary>Tool use: **Bash**</summary>
+Verify task 3 persisted correctly after refactor
+
+`sqlite3 -header -column reflexion.sqlite "SELECT trial_number, attempt, passed FROM trials WHERE task_id=3 ORDER BY trial_number;" && echo "" && sqlite3 -header -column reflexion.sqlite "SELECT trial_number, substr(content,1,70) || '...' AS reflection FROM reflections WHERE task_id=3 ORDER BY trial_number;" && echo "" && sqlite3 -header -column reflexion.sqlite "SELECT id, status, finished_at-created_at AS ms FROM tasks WHERE id=3;"`
+
+```text
+trial_number  attempt                   passed
+------------  ------------------------  ------
+0             Writer                    0     
+1             Writer                    0     
+2             Science fiction novelist  0     
+3             Novelist                  1     
+
+trial_number  reflection                                                               
+------------  -------------------------------------------------------------------------
+0             I may have answered too broadly by choosing a general profession witho...
+1             This time, I may have overlooked a key detail that differentiates thei...
+2             Once again, I may have defaulted to a general genre without verifying ...
+
+id  status  ms  
+--  ------  ----
+3   passed  7459
+```
+</details></tool-use>
+
+_**Agent (claude-opus-4-7 2026-05-17 12:58:07Z)**_
+
+_**Agent (claude-opus-4-7 2026-05-17 12:58:07Z)**_
+
+Confirmed working after the refactor. Full loop fired 4 trials before passing — exercising every extracted module:
+
+| Trial | Attempt | Verdict |
+|-------|---------|---------|
+| 0 | "Writer" | fail |
+| 1 | "Writer" | fail |
+| 2 | "Science fiction novelist" | fail |
+| 3 | "Novelist" | **pass** |
+
+What this proves about the refactor:
+
+- **`reflexion/prompts/actor.ts`** is producing the memory-injected prompt correctly (the Actor's answer shifts in response to growing reflections).
+- **`reflexion/agents/actor.ts`** is calling OpenAI through the shared client.
+- **`reflexion/repository/trials.ts`** persisted all 4 attempts (DB shows trial_number 0–3, with `passed=1` only on trial 3).
+- **Memory cap** (LIMIT 3 in loop.ts step 1) is intact — trial 3 saw exactly the last 3 reflections and finally converged to "Novelist".
+- **Task lifecycle** finished cleanly: `status='passed'`, completed in 7.5s.
+
+Refactor is verified clean. No behavior drift.

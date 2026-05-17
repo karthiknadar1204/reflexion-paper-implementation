@@ -1,35 +1,13 @@
-import OpenAI from "openai";
 import { db } from "./db";
+import { openai, MODEL } from "./reflexion/openai";
+import { callActor } from "./reflexion/agents/actor";
+import { insertTrialAttempt } from "./reflexion/repository/trials";
 
-const openai = new OpenAI();
-const MODEL = "gpt-4.1";
 const MAX_TRIALS = 5;
 const MEM_SIZE = 3;
 
 const normalize = (s: string) =>
   s.toLowerCase().replace(/[^a-z0-9 ]/g, "").trim();
-
-async function callActor(question: string, mem: string[]): Promise<string> {
-  const memBlock = mem.length
-    ? `You previously attempted this question and failed. Your reflections:\n${mem
-        .map((r, i) => `${i + 1}. ${r}`)
-        .join("\n")}\n\nUse these to avoid repeating the same mistakes.\n\n`
-    : "";
-
-  const res = await openai.chat.completions.create({
-    model: MODEL,
-    temperature: 0.7,
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a careful trivia assistant. Answer the question with ONLY the final answer — no explanation, no extra words.",
-      },
-      { role: "user", content: `${memBlock}Question: ${question}\nAnswer:` },
-    ],
-  });
-  return res.choices[0].message.content?.trim() ?? "";
-}
 
 async function callReflector(
   question: string,
@@ -87,15 +65,7 @@ export async function* runReflexionLoop(
     const attempt = await callActor(question, mem);
 
     // Step 4: persist attempt
-    db.query(`
-      INSERT INTO trials (task_id, trial_number, attempt, passed, created_at)
-      VALUES ($task_id, $trial_number, $attempt, 0, $created_at)
-    `).run({
-      task_id: taskId,
-      trial_number: t,
-      attempt,
-      created_at: Date.now(),
-    });
+    insertTrialAttempt(taskId, t, attempt);
     yield { type: "attempt", trial: t, answer: attempt };
 
     // Step 5: evaluator
